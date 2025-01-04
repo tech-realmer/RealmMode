@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Token Price Check</title>
+  <title>Top 10 Token Price Differences</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,16 +24,26 @@
       font-size: 2rem;
     }
 
-    header p {
-      margin: 0.5rem 0 0;
-      font-size: 1rem;
+    button {
+      display: block;
+      margin: 1rem auto;
+      padding: 0.8rem 1.5rem;
+      background-color: #6a0dad;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #5a0bbd;
     }
 
     table {
       width: 90%;
       margin: 2rem auto;
       border-collapse: collapse;
-      background-color: white;
+      background: white;
       border-radius: 8px;
       overflow: hidden;
       box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
@@ -48,7 +58,6 @@
     th {
       background-color: #6a0dad;
       color: white;
-      font-weight: bold;
     }
 
     tr:nth-child(even) {
@@ -70,10 +79,11 @@
 <body>
 
 <header>
-  <h1>Token Price Comparison</h1>
-  <p>Tokens with the highest price differences between Bybit and MEXC</p>
+  <h1>Top 10 Token Price Differences</h1>
+  <p>Tokens listed on Bybit and MEXC with the highest price differences</p>
 </header>
 
+<button onclick="refreshData()">Refresh Data</button>
 <div class="loading" id="loading">Loading data, please wait...</div>
 
 <table id="priceTable" style="display: none;">
@@ -89,12 +99,15 @@
 </table>
 
 <script>
-  const API_KEY = "e61855ad-b049-4f96-9549-a8ef83d91719"; // Replace with your CoinMarketCap API key
-  const API_URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest";
+  const API_KEY = "e61855ad-b049-4f96-9549-a8ef83d91719"; // Replace with your API Key
+  const API_URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest";
 
-  async function fetchTokenData() {
+  // List of token slugs listed on Bybit and MEXC (can be extended)
+  const TOKEN_SLUGS = "BTC,ETH,BNB,SOL,ADA,DOT,MATIC,SHIB,AVAX,LTC";
+
+  async function fetchTokenData(symbols) {
     try {
-      const response = await fetch(`${API_URL}?convert=USD&limit=5000`, {
+      const response = await fetch(`${API_URL}?symbol=${symbols}&convert=USD`, {
         headers: { "X-CMC_PRO_API_KEY": API_KEY }
       });
       const data = await response.json();
@@ -104,30 +117,39 @@
     }
   }
 
-  function calculateDifferences(tokens) {
-    const filteredTokens = tokens.filter(token => 
-      token.platforms && token.platforms.includes("Bybit") && token.platforms.includes("MEXC")
-    );
+  function calculateTopDifferences(data) {
+    const results = [];
+    for (const symbol in data) {
+      const bybitPrice = data[symbol].quote.USD.price; // Simulated Bybit price
+      const mexcPrice = bybitPrice * (1 + Math.random() * 0.02 - 0.01); // Simulated MEXC price (random variance for testing)
 
-    const results = filteredTokens.map(token => {
-      const bybitPrice = token.quote.USD.price; // Replace with Bybit-specific price
-      const mexcPrice = token.quote.USD.price * 1.02; // Replace with MEXC-specific price
-      const difference = ((bybitPrice - mexcPrice) / mexcPrice) * 100;
-
-      return { name: token.name, symbol: token.symbol, bybitPrice, mexcPrice, difference };
-    });
-
-    return results.sort((a, b) => b.difference - a.difference);
+      if (bybitPrice && mexcPrice) {
+        const difference = ((bybitPrice - mexcPrice) / mexcPrice) * 100;
+        results.push({
+          name: data[symbol].name,
+          symbol: data[symbol].symbol,
+          bybitPrice,
+          mexcPrice,
+          difference,
+        });
+      }
+    }
+    return results.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).slice(0, 10);
   }
 
   async function displayData() {
-    const tokens = await fetchTokenData();
-    const differences = calculateDifferences(tokens);
+    const loadingElement = document.getElementById("loading");
+    const tableElement = document.getElementById("priceTable");
+    const tbody = tableElement.querySelector("tbody");
 
-    const table = document.getElementById("priceTable");
-    const tbody = table.querySelector("tbody");
+    tbody.innerHTML = ""; // Clear previous rows
+    loadingElement.style.display = "block";
+    tableElement.style.display = "none";
 
-    differences.forEach(({ name, symbol, bybitPrice, mexcPrice, difference }) => {
+    const data = await fetchTokenData(TOKEN_SLUGS);
+    const topDifferences = calculateTopDifferences(data);
+
+    topDifferences.forEach(({ name, symbol, bybitPrice, mexcPrice, difference }) => {
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${name} (${symbol})</td>
@@ -138,10 +160,15 @@
       tbody.appendChild(row);
     });
 
-    document.getElementById("loading").style.display = "none";
-    table.style.display = "table";
+    loadingElement.style.display = "none";
+    tableElement.style.display = "table";
   }
 
+  function refreshData() {
+    displayData();
+  }
+
+  // Initial data load
   displayData();
 </script>
 
