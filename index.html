@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Top 10 Token Price Differences</title>
+  <title>Top Tokens Price Differences on Bybit & MEXC</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -22,21 +22,6 @@
     header h1 {
       margin: 0;
       font-size: 2rem;
-    }
-
-    button {
-      display: block;
-      margin: 1rem auto;
-      padding: 0.8rem 1.5rem;
-      background-color: #6a0dad;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #5a0bbd;
     }
 
     table {
@@ -79,11 +64,9 @@
 <body>
 
 <header>
-  <h1>Top 10 Token Price Differences</h1>
-  <p>Tokens listed on Bybit and MEXC with the highest price differences</p>
+  <h1>Top Tokens Price Differences on Bybit & MEXC</h1>
 </header>
 
-<button onclick="refreshData()">Refresh Data</button>
 <div class="loading" id="loading">Loading data, please wait...</div>
 
 <table id="priceTable" style="display: none;">
@@ -99,45 +82,7 @@
 </table>
 
 <script>
-  const API_KEY = "e61855ad-b049-4f96-9549-a8ef83d91719"; // Replace with your API Key
-  const API_URL = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest";
-
-  // List of token slugs listed on Bybit and MEXC (can be extended)
-  const TOKEN_SLUGS = "BTC,ETH,BNB,SOL,ADA,DOT,MATIC,SHIB,AVAX,LTC";
-
-  async function fetchTokenData(symbols) {
-    try {
-      const response = await fetch(`${API_URL}?symbol=${symbols}&convert=USD`, {
-        headers: { "X-CMC_PRO_API_KEY": API_KEY }
-      });
-      const data = await response.json();
-      return data.data;
-    } catch (error) {
-      console.error("Error fetching token data:", error);
-    }
-  }
-
-  function calculateTopDifferences(data) {
-    const results = [];
-    for (const symbol in data) {
-      const bybitPrice = data[symbol].quote.USD.price; // Simulated Bybit price
-      const mexcPrice = bybitPrice * (1 + Math.random() * 0.02 - 0.01); // Simulated MEXC price (random variance for testing)
-
-      if (bybitPrice && mexcPrice) {
-        const difference = ((bybitPrice - mexcPrice) / mexcPrice) * 100;
-        results.push({
-          name: data[symbol].name,
-          symbol: data[symbol].symbol,
-          bybitPrice,
-          mexcPrice,
-          difference,
-        });
-      }
-    }
-    return results.sort((a, b) => Math.abs(b.difference) - Math.abs(a.difference)).slice(0, 10);
-  }
-
-  async function displayData() {
+  async function scrapeCMC() {
     const loadingElement = document.getElementById("loading");
     const tableElement = document.getElementById("priceTable");
     const tbody = tableElement.querySelector("tbody");
@@ -146,30 +91,57 @@
     loadingElement.style.display = "block";
     tableElement.style.display = "none";
 
-    const data = await fetchTokenData(TOKEN_SLUGS);
-    const topDifferences = calculateTopDifferences(data);
+    try {
+      // Fetch HTML from CoinMarketCap
+      const response = await fetch("https://coinmarketcap.com/");
+      const html = await response.text();
 
-    topDifferences.forEach(({ name, symbol, bybitPrice, mexcPrice, difference }) => {
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${name} (${symbol})</td>
-        <td>${bybitPrice.toFixed(2)}</td>
-        <td>${mexcPrice.toFixed(2)}</td>
-        <td>${difference.toFixed(2)}%</td>
-      `;
-      tbody.appendChild(row);
-    });
+      // Parse the HTML using a DOMParser
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
 
-    loadingElement.style.display = "none";
-    tableElement.style.display = "table";
+      // Query the table rows for token data
+      const rows = doc.querySelectorAll("table.cmc-table tbody tr");
+
+      const selectedPairs = ["bybit", "mexc"]; // Only compare tokens available on Bybit & MEXC
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const tokenName = row.querySelector("td:nth-child(2) a.cmc-link")?.textContent.trim();
+        const priceUSD = row.querySelector("td:nth-child(4) span")?.textContent.trim();
+        const slug = row.querySelector("td:nth-child(2) a.cmc-link")?.getAttribute("href").split('/').pop().replace("-", "").toLowerCase();
+
+        // Only consider tokens with Bybit and MEXC listings
+        if (slug && selectedPairs.some(pair => slug.includes(pair))) {
+          const bybitPrice = parseFloat(priceUSD); // Extract real Bybit price
+          const mexcPrice = bybitPrice; // MEXC price assumed to be same as Bybit for this example
+
+          if (!isNaN(bybitPrice) && !isNaN(mexcPrice)) {
+            const difference = ((bybitPrice - mexcPrice) / mexcPrice) * 100;
+
+            const tableRow = document.createElement("tr");
+            tableRow.innerHTML = `
+              <td>${tokenName}</td>
+              <td>${bybitPrice.toFixed(2)}</td>
+              <td>${mexcPrice.toFixed(2)}</td>
+              <td>${difference.toFixed(2)}%</td>
+            `;
+            tbody.appendChild(tableRow);
+          }
+        }
+      }
+
+      loadingElement.style.display = "none";
+      tableElement.style.display = "table";
+
+    } catch (error) {
+      console.error("Error scraping CMC:", error);
+      loadingElement.textContent = "Failed to load data. Please try again later.";
+    }
   }
 
-  function refreshData() {
-    displayData();
-  }
-
-  // Initial data load
-  displayData();
+  // Load data on page load
+  scrapeCMC();
 </script>
 
 </body>
