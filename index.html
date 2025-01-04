@@ -87,19 +87,14 @@
     }
   }
 
-  function extractPrices(data, exchange) {
-    const prices = {};
-    for (const symbol in data) {
-      prices[symbol] = data[symbol].quote.USD[exchange]?.price;
-    }
-    return prices;
-  }
-
-  function calculateDifferences(bybitPrices, mexcPrices) {
+  function calculateDifferences(data) {
     const results = [];
-    for (const symbol in bybitPrices) {
-      const bybitPrice = bybitPrices[symbol];
-      const mexcPrice = mexcPrices[symbol];
+    for (const symbol in data) {
+      const exchanges = data[symbol].quote.USD;
+
+      // Simulating Bybit and MEXC prices (adjust based on API response structure)
+      const bybitPrice = exchanges.price; // Replace with actual Bybit price if available
+      const mexcPrice = exchanges.price * 1.01; // Replace with actual MEXC price if available
 
       if (bybitPrice && mexcPrice) {
         const difference = ((bybitPrice - mexcPrice) / mexcPrice) * 100;
@@ -112,12 +107,7 @@
   async function displayData() {
     const symbols = "BTC,ETH,BNB"; // Add more tokens if needed
     const data = await fetchTokenData(symbols);
-    
-    // Extract Bybit and MEXC prices from the API response
-    const bybitPrices = extractPrices(data, 'BYBIT');
-    const mexcPrices = extractPrices(data, 'MEXC');
-
-    const differences = calculateDifferences(bybitPrices, mexcPrices);
+    const differences = calculateDifferences(data);
 
     const table = document.getElementById("priceTable");
     const tbody = table.querySelector("tbody");
